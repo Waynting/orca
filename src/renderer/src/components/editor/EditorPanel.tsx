@@ -80,6 +80,7 @@ function EditorPanelInner({
   )
   const editorDrafts = useAppStore(editorDraftSelector)
   const settings = useAppStore((s) => s.settings)
+  const markdownReviewToolsEnabled = settings?.markdownReviewToolsEnabled ?? true
   const panelRef = useRef<HTMLDivElement>(null)
   const [copiedPathToast, setCopiedPathToast] = useState<{ fileId: string; token: number } | null>(
     null
@@ -384,7 +385,7 @@ function EditorPanelInner({
         }
         onCloseRenameDialog={closeRenameDialog}
         onRenameConfirm={handleRenameConfirm}
-        markdownAnnotationsEnabled={markdownAnnotationsEnabled}
+        markdownAnnotationsEnabled={markdownAnnotationsEnabled && markdownReviewToolsEnabled}
       />
     </DiffNavigationProvider>
   )

@@ -97,8 +97,9 @@ export function getFolderWorkspacePathStatusDescription(
 }
 
 // Why: matched anywhere in a line because Electron IPC prefixes rejected errors before they reach us.
+// The path is optional: the runtime throws the ambiguous-connection code bare.
 const FOLDER_WORKSPACE_PATH_ERROR_PATTERN =
-  /folder_workspace_(path_missing|path_not_directory|connection_ambiguous|path_unavailable):([^\r\n]*)/
+  /folder_workspace_(path_missing|path_not_directory|connection_ambiguous|path_unavailable)(?![a-z0-9_])(?::([^\r\n]*))?/
 
 export function isFolderWorkspacePathError(message: string): boolean {
   return FOLDER_WORKSPACE_PATH_ERROR_PATTERN.test(message)
@@ -113,7 +114,7 @@ export function getFolderWorkspacePathErrorCopy(message: string): {
   if (!match) {
     return null
   }
-  const [, code, path] = match
+  const [, code, path = ''] = match
   switch (code) {
     case 'path_missing':
       return {

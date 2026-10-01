@@ -36,6 +36,22 @@ describe('TerminalErrorToast folder workspace path errors', () => {
     expect(humanized).toBe(['/srv/app exists, but it is not a folder.', 'Another error'].join('\n'))
   })
 
+  it('humanizes the ambiguous-connection code thrown without a path', () => {
+    const view = render(
+      React.createElement(TerminalErrorToast, {
+        error: 'folder_workspace_connection_ambiguous',
+        onDismiss: vi.fn()
+      })
+    )
+
+    const toast = view.container.querySelector('[data-terminal-error-toast]')
+    expect(toast?.textContent).toContain(
+      'Orca cannot tell which SSH connection owns this folder scope.'
+    )
+    expect(toast?.textContent).not.toContain('folder_workspace_connection_ambiguous')
+    expect(toast?.querySelector('a')).toBeNull()
+  })
+
   it('keeps the issue link when an unrelated error shares the toast', () => {
     const view = render(
       React.createElement(TerminalErrorToast, {

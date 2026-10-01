@@ -105,8 +105,17 @@ describe('getFolderWorkspacePathErrorCopy', () => {
     )
   })
 
+  it('maps the ambiguous-connection code the runtime throws without a path', () => {
+    expect(
+      getFolderWorkspacePathErrorCopy(
+        "Error invoking remote method 'pty:spawn': Error: folder_workspace_connection_ambiguous"
+      )?.title
+    ).toBe('Cannot determine connection')
+  })
+
   it('returns null for unrelated errors', () => {
     expect(getFolderWorkspacePathErrorCopy('folder_workspace_not_found')).toBeNull()
+    expect(getFolderWorkspacePathErrorCopy('folder_workspace_path_missing_extra:/x')).toBeNull()
     expect(getFolderWorkspacePathErrorCopy('Failed to spawn shell')).toBeNull()
   })
 })

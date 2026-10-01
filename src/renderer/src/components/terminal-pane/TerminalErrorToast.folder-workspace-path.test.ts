@@ -36,6 +36,19 @@ describe('TerminalErrorToast folder workspace path errors', () => {
     expect(humanized).toBe(['/srv/app exists, but it is not a folder.', 'Another error'].join('\n'))
   })
 
+  it('keeps the issue link when an unrelated error shares the toast', () => {
+    const view = render(
+      React.createElement(TerminalErrorToast, {
+        error: [MISSING_FOLDER_ERROR, 'Failed to spawn shell "/bin/zsh": boom'].join('\n'),
+        onDismiss: vi.fn()
+      })
+    )
+
+    const toast = view.container.querySelector('[data-terminal-error-toast]')
+    expect(toast?.textContent).toContain('Orca cannot find /Users/me/ara_company')
+    expect(toast?.querySelector('a')?.textContent).toBe('file an issue')
+  })
+
   it('does not ask the user to file an issue for a folder they can fix', () => {
     const view = render(
       React.createElement(TerminalErrorToast, {

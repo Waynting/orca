@@ -118,6 +118,12 @@ function humanizeUnreattachableSession(error: string): string {
   )
 }
 
+// Why: only an all-folder toast drops the issue link; an unrelated line still needs it.
+function isFolderWorkspacePathOnlyError(error: string): boolean {
+  const lines = error.split('\n').filter((line) => line.length > 0)
+  return lines.length > 0 && lines.every(isFolderWorkspacePathError)
+}
+
 // Why: a moved or deleted folder is the user's to fix, so it gets actionable copy, not an issue link.
 function humanizeFolderWorkspacePathErrors(error: string): string {
   return error
@@ -197,7 +203,7 @@ export function TerminalErrorToast({
     !paneOwnerUnverified &&
     !showDaemonRestart &&
     !isExplainedTerminalError(error) &&
-    !isFolderWorkspacePathError(error)
+    !isFolderWorkspacePathOnlyError(error)
   const humanizedError = humanizeTerminalError(error)
   // Why: the toast appends its own linked request, so the host's plain-text one would repeat it.
   const displayError = showIssueLink

@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { translate } from '@/i18n/i18n'
 import { resolveClientEnvironmentFooter } from '@/lib/client-environment-info'
+import {
+  getFolderWorkspacePathErrorCopy,
+  isFolderWorkspacePathError
+} from '@/lib/folder-workspace-path-status'
 import { Button } from '@/components/ui/button'
 import { hasClientEnvironmentFooter } from '../../../../shared/client-environment-info'
 import {
@@ -114,9 +118,17 @@ function humanizeUnreattachableSession(error: string): string {
   )
 }
 
+// Why: a moved or deleted folder is the user's to fix, so it gets actionable copy, not an issue link.
+function humanizeFolderWorkspacePathErrors(error: string): string {
+  return error
+    .split('\n')
+    .map((line) => getFolderWorkspacePathErrorCopy(line)?.description ?? line)
+    .join('\n')
+}
+
 /** Swaps raw daemon-boundary codes for copy a user can act on. */
 export function humanizeTerminalError(error: string): string {
-  let humanized = localizeTerminalSpawnHints(error)
+  let humanized = humanizeFolderWorkspacePathErrors(localizeTerminalSpawnHints(error))
   if (humanized.includes(PANE_OWNER_UNVERIFIED_MARKER)) {
     const explanation = isPaneOwnerUnverifiedError(humanized)
       ? translate(
@@ -181,7 +193,11 @@ export function TerminalErrorToast({
   const showDaemonRestart = !ssh && onRestartDaemon && shouldOfferDaemonRestart(error)
   // Restart cannot recover a session after its owning daemon exits.
   const showIssueLink =
-    !ssh && !paneOwnerUnverified && !showDaemonRestart && !isExplainedTerminalError(error)
+    !ssh &&
+    !paneOwnerUnverified &&
+    !showDaemonRestart &&
+    !isExplainedTerminalError(error) &&
+    !isFolderWorkspacePathError(error)
   const humanizedError = humanizeTerminalError(error)
   // Why: the toast appends its own linked request, so the host's plain-text one would repeat it.
   const displayError = showIssueLink

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { FolderWorkspacePathStatus } from '../../../shared/folder-workspace-path-status'
 import {
+  formatFolderWorkspaceCreateError,
+  getFolderWorkspacePathErrorCopy,
   getFolderWorkspacePathStatusDescription,
   getFolderWorkspacePathStatusTitle
 } from './folder-workspace-path-status'
@@ -73,5 +75,50 @@ describe('getFolderWorkspacePathStatusDescription', () => {
     expect(description).not.toBe(
       'Orca cannot find /srv/scans. Remove and re-import this folder workspace.'
     )
+  })
+})
+
+describe('getFolderWorkspacePathErrorCopy', () => {
+  it('maps each main-process path error code to its own copy', () => {
+    expect(getFolderWorkspacePathErrorCopy('folder_workspace_path_missing:/srv/scans')).toEqual({
+      title: 'Folder not found',
+      description: 'Orca cannot find /srv/scans. Remove and re-import the folder.'
+    })
+    expect(
+      getFolderWorkspacePathErrorCopy('folder_workspace_path_not_directory:/srv/scans')?.title
+    ).toBe('Path is not a folder')
+    expect(
+      getFolderWorkspacePathErrorCopy('folder_workspace_connection_ambiguous:/srv/scans')?.title
+    ).toBe('Cannot determine connection')
+    expect(
+      getFolderWorkspacePathErrorCopy('folder_workspace_path_unavailable:/srv/scans')?.title
+    ).toBe('Cannot check folder')
+  })
+
+  it('finds the code behind an Electron IPC prefix and keeps paths with spaces', () => {
+    const copy = getFolderWorkspacePathErrorCopy(
+      "Error invoking remote method 'pty:spawn': Error: folder_workspace_path_missing:/Users/me/My Project"
+    )
+
+    expect(copy?.description).toBe(
+      'Orca cannot find /Users/me/My Project. Remove and re-import the folder.'
+    )
+  })
+
+  it('returns null for unrelated errors', () => {
+    expect(getFolderWorkspacePathErrorCopy('folder_workspace_not_found')).toBeNull()
+    expect(getFolderWorkspacePathErrorCopy('Failed to spawn shell')).toBeNull()
+  })
+})
+
+describe('formatFolderWorkspaceCreateError', () => {
+  it('uses the path copy for path codes and the raw message otherwise', () => {
+    expect(
+      formatFolderWorkspaceCreateError(new Error('folder_workspace_path_missing:/srv/app')).title
+    ).toBe('Folder not found')
+    expect(formatFolderWorkspaceCreateError(new Error('disk full'))).toEqual({
+      title: 'Failed to create folder workspace',
+      description: 'disk full'
+    })
   })
 })

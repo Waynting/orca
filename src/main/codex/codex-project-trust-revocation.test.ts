@@ -1,5 +1,13 @@
 import type * as NodeOs from 'node:os'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,6 +32,7 @@ let systemConfig: string
 let accountConfig: string
 let workspacesDir: string
 
+const EMPTY_LEDGER = { configs: {}, pendingMirrorCleanup: [] }
 const trustTable = (path: string): string => `[projects."${path}"]\ntrust_level = "trusted"\n`
 const read = (file: string): string => readFileSync(file, 'utf-8')
 
@@ -74,7 +83,7 @@ describe('revokeCodexProjectTrustForRemovedWorkspace', () => {
     for (const file of [runtimeConfig, systemConfig, accountConfig]) {
       expect(read(file)).toBe('model = "gpt-5"\n')
     }
-    expect(readCodexProjectTrustLedger()).toEqual({})
+    expect(readCodexProjectTrustLedger()).toEqual(EMPTY_LEDGER)
   })
 
   it('leaves a table that existed before Orca pre-trusted the path', async () => {
@@ -101,7 +110,63 @@ describe('revokeCodexProjectTrustForRemovedWorkspace', () => {
 
     expect(read(systemConfig)).toContain('trust_level = "untrusted"')
     expect(read(runtimeConfig)).toBe('model = "gpt-5"\n')
-    expect(readCodexProjectTrustLedger()).toEqual({})
+    // Why: `untrusted` is a revocation, the same reading the config mirror gives it.
+    expect(read(accountConfig)).toBe('model = "gpt-5"\n')
+    expect(readCodexProjectTrustLedger()).toEqual(EMPTY_LEDGER)
+  })
+
+  it('keeps account copies when a source cannot be read, rather than assuming it is empty', async () => {
+    const worktree = join(workspacesDir, 'repo-r4')
+    mkdirSync(worktree, { recursive: true })
+    writeFileSync(systemConfig, `model = "gpt-5"\n\n${trustTable(worktree)}`)
+    await preTrust(worktree)
+    chmodSync(systemConfig, 0o000)
+
+    await expect(
+      revokeCodexProjectTrustForRemovedWorkspace({ removedRoot: worktree, remainingRoots: [] })
+    ).rejects.toThrow()
+
+    chmodSync(systemConfig, 0o600)
+    expect(read(accountConfig)).toContain(trustTable(worktree))
+  })
+
+  it('retries account copies it could not reach on the next revocation', async () => {
+    const first = join(workspacesDir, 'repo-r5')
+    const second = join(workspacesDir, 'repo-r6')
+    mkdirSync(first, { recursive: true })
+    mkdirSync(second, { recursive: true })
+    await preTrust(first)
+    await preTrust(second)
+    const accountsRoot = join(accountConfig, '..', '..', '..')
+    chmodSync(accountsRoot, 0o000)
+
+    await expect(
+      revokeCodexProjectTrustForRemovedWorkspace({ removedRoot: first, remainingRoots: [] })
+    ).rejects.toThrow()
+
+    chmodSync(accountsRoot, 0o700)
+    expect(read(systemConfig)).not.toContain(trustTable(first))
+    expect(readCodexProjectTrustLedger().pendingMirrorCleanup).toEqual([first])
+
+    await revokeCodexProjectTrustForRemovedWorkspace({ removedRoot: second, remainingRoots: [] })
+
+    expect(read(accountConfig)).toBe('model = "gpt-5"\n')
+    expect(readCodexProjectTrustLedger()).toEqual(EMPTY_LEDGER)
+  })
+
+  it('keeps writing trust to every file when the ledger cannot be recorded', async () => {
+    const worktree = join(workspacesDir, 'repo-r7')
+    mkdirSync(worktree, { recursive: true })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await markCodexProjectTrusted(worktree, [runtimeConfig, systemConfig], () => {
+      throw new Error('EROFS')
+    })
+
+    expect(read(runtimeConfig)).toContain(trustTable(worktree))
+    expect(read(systemConfig)).toContain(trustTable(worktree))
+    expect(warn).toHaveBeenCalledTimes(2)
+    warn.mockRestore()
   })
 
   it('keeps trust for another workspace session on the same folder', async () => {

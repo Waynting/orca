@@ -180,7 +180,12 @@ export function markCodexProjectTrusted(
     async () => {
       for (const configFile of configFiles) {
         if (upsertProjectTrustLevel(configFile, absPath, 'trusted')) {
-          onTableCreated?.(configFile, absPath)
+          try {
+            onTableCreated?.(configFile, absPath)
+          } catch (error) {
+            // Why: cleanup bookkeeping must never cost the launch its trust in the remaining files.
+            console.warn('[agent-trust] Could not record Codex project trust in the ledger', error)
+          }
         }
       }
     }

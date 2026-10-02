@@ -49,6 +49,19 @@ export function hasProjectTrustTable(content: string, projectPath: string): bool
   return findProjectHeaderLineEnd(stripLeadingBom(content), projectPath) !== null
 }
 
+/** Whether `content` may still trust `projectPath`: only an explicit `untrusted` or no table says no. */
+export function projectTrustTableTrusts(content: string, projectPath: string): boolean {
+  const existing = stripLeadingBom(content)
+  const headerLineEnd = findProjectHeaderLineEnd(existing, projectPath)
+  if (headerLineEnd === null) {
+    return false
+  }
+  const nextHeaderOffset = findNextTomlTableHeader(existing.slice(headerLineEnd))
+  const blockEnd = nextHeaderOffset === -1 ? existing.length : headerLineEnd + nextHeaderOffset
+  const entry = findProjectTrustLevelEntries(existing.slice(headerLineEnd, blockEnd))[0]
+  return entry?.value !== 'untrusted'
+}
+
 function canonicalizeLocalProjectPath(projectPath: string): string {
   try {
     return realpathSync.native(projectPath)

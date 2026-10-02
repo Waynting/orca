@@ -44,6 +44,11 @@ export function upsertProjectTrustContent(
   return `${existing.slice(0, headerLineEnd)}${eol}${trustLine}${existing.slice(headerLineEnd)}`
 }
 
+/** Whether `content` already has a table for `projectPath`, in any spelling Codex accepts. */
+export function hasProjectTrustTable(content: string, projectPath: string): boolean {
+  return findProjectHeaderLineEnd(stripLeadingBom(content), projectPath) !== null
+}
+
 function canonicalizeLocalProjectPath(projectPath: string): string {
   try {
     return realpathSync.native(projectPath)
